@@ -4,7 +4,7 @@ Slash command and skill completion for ddc.vim.
 
 Type `/` at line start or after space to complete Claude Code slash commands and skills.
 
-## Features
+## 1. Features
 
 - Completion triggers when `/` is at line start or after a space
 - Prevents unwanted completion in file paths
@@ -13,7 +13,7 @@ Type `/` at line start or after space to complete Claude Code slash commands and
 - Supports both commands (files) and skills (directories with SKILL.md)
 - Scans user-level and project-level directories
 
-## Installation
+## 2. Installation
 
 Using dein.vim
 
@@ -37,7 +37,7 @@ Using lazy.nvim
 }
 ```
 
-## Configuration
+## 3. Configuration
 
 Basic setup
 
@@ -46,7 +46,7 @@ call ddc#custom#patch_global('sources', ['slash_commands'])
 
 call ddc#custom#patch_global('sourceOptions', {
   \ 'slash_commands': {
-  \   'mark': '[/]',
+  \   'mark': '[slash]',
   \   'matchers': ['matcher_head'],
   \   'minAutoCompleteLength': 1,
   \   'isVolatile': v:true,
@@ -56,7 +56,7 @@ call ddc#custom#patch_global('sourceOptions', {
 
 For fuzzy matching, change `matchers` to `matcher_fuzzy`.
 
-## Parameters
+## 4. Parameters
 
 - `userDirs`
     - Default: `["~/.claude/commands/", "~/.claude/skills/"]`
@@ -77,7 +77,7 @@ call ddc#custom#patch_global('sourceParams', {
 
 See `:help ddc-source-slash-commands` for more options.
 
-## Skills Support
+## 5. Skills Support
 
 This plugin follows the [Agent Skills specification](https://agentskills.io).
 
@@ -85,7 +85,7 @@ For skills directories, only subdirectories containing a `SKILL.md` file are rec
 
 NOTE: Skills detection only works for directories named `skills`. Custom directory names are treated as command directories.
 
-```
+```text
 ~/.claude/skills/
   my-skill/
     SKILL.md      # Required - this makes it a valid skill
@@ -94,7 +94,7 @@ NOTE: Skills detection only works for directories named `skills`. Custom directo
     readme.md     # Not recognized (no SKILL.md)
 ```
 
-## Menu Labels
+## 6. Menu Labels
 
 Completion items show their source type and scope in the menu.
 
@@ -107,14 +107,14 @@ For default configuration:
 
 NOTE: Menu labels use the directory name. Custom directories like `~/my-cmds/` will show `[my-cmds:user]`.
 
-## Migration from v1.x
+## 7. Migration from v1.x
 
 The following parameters have been removed:
 
-| Old Parameter | Migration |
-|--------------|-----------|
-| `commandsDir` | Use `userDirs` (array of directories) |
-| `extensions` | Removed (hardcoded to `.md`) |
+| Old Parameter  | Migration                             |
+| -------------- | -----------                           |
+| `commandsDir`  | Use `userDirs` (array of directories) |
+| `extensions`   | Removed (hardcoded to `.md`)          |
 
 Example migration
 
@@ -132,6 +132,6 @@ call ddc#custom#patch_global('sourceParams', {
   \ }})
 ```
 
-## License
+## 8. License
 
 MIT License

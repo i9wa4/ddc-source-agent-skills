@@ -76,7 +76,7 @@ Basic configuration:
 
 	call ddc#custom#patch_global('sourceOptions', {
 	  \ 'slash_commands': {
-	  \   'mark': '[/]',
+	  \   'mark': '[slash]',
 	  \   'matchers': ['matcher_head'],
 	  \   'minAutoCompleteLength': 1,
 	  \   'isVolatile': v:true,
@@ -102,7 +102,7 @@ Fuzzy matching support:
 	call ddc#custom#patch_global('sourceOptions', {
 	  \ 'slash_commands': {
 	  \   'matchers': ['matcher_fuzzy'],
-	  \   'mark': '[/]',
+	  \   'mark': '[slash]',
 	  \   'minAutoCompleteLength': 1,
 	  \   'isVolatile': v:true,
 	  \   'forceCompletionPattern': '\/[a-zA-Z0-9_-]*',
@@ -121,7 +121,7 @@ These are common ddc.vim source options that work well with this plugin.
 mark		(string)
 		Completion menu marker.
 
-		Default: "[/]"
+		Default: "[slash]"
 
 				*ddc-source-slash-commands-option-matchers*
 matchers	(string[])
