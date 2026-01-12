@@ -81,7 +81,9 @@ See `:help ddc-source-slash-commands` for more options.
 
 This plugin follows the [Agent Skills specification](https://agentskills.io).
 
-For skills directories (directories named `skills`), only subdirectories containing a `SKILL.md` file are recognized as valid skills.
+For skills directories, only subdirectories containing a `SKILL.md` file are recognized as valid skills.
+
+NOTE: Skills detection only works for directories named `skills`. Custom directory names are treated as command directories.
 
 ```
 ~/.claude/skills/
@@ -94,12 +96,16 @@ For skills directories (directories named `skills`), only subdirectories contain
 
 ## Menu Labels
 
-Completion items show their source type and scope in the menu:
+Completion items show their source type and scope in the menu.
+
+For default configuration:
 
 - `[commands:user]` - User-level command
 - `[commands:project]` - Project-level command
 - `[skills:user]` - User-level skill
 - `[skills:project]` - Project-level skill
+
+NOTE: Menu labels use the directory name. Custom directories like `~/my-cmds/` will show `[my-cmds:user]`.
 
 ## Migration from v1.x
 

@@ -3,7 +3,7 @@ import {
   type GatherArguments,
 } from "jsr:@shougo/ddc-vim@9.5.0/source";
 import type { Item } from "jsr:@shougo/ddc-vim@9.5.0/types";
-import { basename, join, resolve } from "jsr:@std/path@^1.0.8";
+import { basename, dirname, join, resolve } from "jsr:@std/path@^1.0.8";
 import { exists, expandGlob } from "jsr:@std/fs@^1.0.8";
 
 type Params = {
@@ -33,7 +33,7 @@ export async function scanDirectory(
     if (dirName === "skills") {
       // Skills: scan */SKILL.md pattern (Agent Skills standard)
       for await (const entry of expandGlob(join(dir, "*/SKILL.md"))) {
-        const skillName = basename(entry.path.replace(/\/SKILL\.md$/, ""));
+        const skillName = basename(dirname(entry.path));
         // Exclude hidden directories
         if (skillName.startsWith(".")) continue;
         items.push({
@@ -93,8 +93,8 @@ export class Source extends BaseSource<Params> {
     // Expand ~ to home directory
     const homeDir = (await denops.call("expand", "~")) as string;
 
-    // Get current working directory for projectDirs
-    const cwd = Deno.cwd();
+    // Get Vim's current working directory for projectDirs
+    const cwd = (await denops.call("getcwd")) as string;
 
     const items: Item[] = [];
 
