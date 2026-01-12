@@ -4,24 +4,26 @@ Author: i9wa4
 License: MIT License
 
 ==============================================================================
-CONTENTS					*ddc-source-slash-commands-contents*
+CONTENTS				*ddc-source-slash-commands-contents*
 
-INTRODUCTION			|ddc-source-slash-commands-introduction|
-FEATURES			|ddc-source-slash-commands-features|
-INSTALL				|ddc-source-slash-commands-install|
-EXAMPLES			|ddc-source-slash-commands-examples|
-SOURCE OPTIONS			|ddc-source-slash-commands-source-options|
-PARAMS				|ddc-source-slash-commands-params|
+INTRODUCTION		|ddc-source-slash-commands-introduction|
+FEATURES		|ddc-source-slash-commands-features|
+INSTALL			|ddc-source-slash-commands-install|
+EXAMPLES		|ddc-source-slash-commands-examples|
+SOURCE OPTIONS		|ddc-source-slash-commands-source-options|
+PARAMS			|ddc-source-slash-commands-params|
+SKILLS			|ddc-source-slash-commands-skills|
+MIGRATION		|ddc-source-slash-commands-migration|
 
 
 ==============================================================================
 INTRODUCTION				*ddc-source-slash-commands-introduction*
 
 *ddc-source-slash-commands* is a ddc.vim source that provides completion for
-Claude Code slash commands (also known as "custom prompts" in Codex CLI).
+Claude Code slash commands and skills.
 
 When you type "/" in your buffer, it suggests available slash commands from
-your commands directory.
+your commands directories and skills from your skills directories.
 
 
 ==============================================================================
@@ -32,10 +34,12 @@ FEATURES					*ddc-source-slash-commands-features*
 - Supports hyphenated command names (e.g., "/test-setup", "/test-run")
 - Works with both matcher_head (prefix matching) and matcher_fuzzy (fuzzy
   matching)
+- Supports both user-level and project-level directories
+- Follows the Agent Skills specification for skills detection
 
 
 ==============================================================================
-INSTALL						*ddc-source-slash-commands-install*
+INSTALL					*ddc-source-slash-commands-install*
 
 This plugin requires the following:
 
@@ -72,7 +76,7 @@ Basic configuration:
 
 	call ddc#custom#patch_global('sourceOptions', {
 	  \ 'slash_commands': {
-	  \   'mark': '[cmd]',
+	  \   'mark': '[/]',
 	  \   'matchers': ['matcher_head'],
 	  \   'minAutoCompleteLength': 1,
 	  \   'isVolatile': v:true,
@@ -84,8 +88,8 @@ With custom parameters:
 >
 	call ddc#custom#patch_global('sourceParams', {
 	  \ 'slash_commands': {
-	  \   'commandsDir': '~/my/commands/dir',
-	  \   'extensions': ['.md', '.txt'],
+	  \   'userDirs': ['~/.claude/commands/', '~/.claude/skills/'],
+	  \   'projectDirs': ['.claude/commands/', '.claude/skills/'],
 	  \ }})
 <
 
@@ -98,28 +102,28 @@ Fuzzy matching support:
 	call ddc#custom#patch_global('sourceOptions', {
 	  \ 'slash_commands': {
 	  \   'matchers': ['matcher_fuzzy'],
-	  \   'mark': '[cmd]',
+	  \   'mark': '[/]',
 	  \   'minAutoCompleteLength': 1,
 	  \   'isVolatile': v:true,
 	  \   'forceCompletionPattern': '\/[a-zA-Z0-9_-]*',
 	  \ }})
 <
 
-This enables patterns like "/cmd" → "/command1".
+This enables patterns like "/cmd" -> "/command1".
 
 
 ==============================================================================
-SOURCE OPTIONS				*ddc-source-slash-commands-source-options*
+SOURCE OPTIONS			*ddc-source-slash-commands-source-options*
 
 These are common ddc.vim source options that work well with this plugin.
 
-					*ddc-source-slash-commands-option-mark*
+				*ddc-source-slash-commands-option-mark*
 mark		(string)
 		Completion menu marker.
 
-		Default: "[cmd]"
+		Default: "[/]"
 
-					*ddc-source-slash-commands-option-matchers*
+				*ddc-source-slash-commands-option-matchers*
 matchers	(string[])
 		Matcher to use.
 		- ["matcher_head"]: Prefix matching (e.g., "/my" matches
@@ -152,19 +156,69 @@ forceCompletionPattern	(string)
 
 
 ==============================================================================
-PARAMS						*ddc-source-slash-commands-params*
+PARAMS					*ddc-source-slash-commands-params*
 
-					*ddc-source-slash-commands-param-commandsDir*
-commandsDir	(string)
-		Directory path containing slash command files.
+				*ddc-source-slash-commands-param-userDirs*
+userDirs	(string[])
+		User-level directories to scan for commands and skills.
+		Paths starting with "~" are expanded to the home directory.
 
-		Default: "~/.config/claude/commands"
+		Default: ["~/.claude/commands/", "~/.claude/skills/"]
 
-					*ddc-source-slash-commands-param-extensions*
-extensions	(string[])
-		File extensions to include in completion.
+				*ddc-source-slash-commands-param-projectDirs*
+projectDirs	(string[])
+		Project-level directories to scan for commands and skills.
+		Relative paths are resolved from the current working directory.
 
-		Default: [".md"]
+		Default: [".claude/commands/", ".claude/skills/"]
+
+
+==============================================================================
+SKILLS					*ddc-source-slash-commands-skills*
+
+This plugin follows the Agent Skills specification (https://agentskills.io).
+
+For directories named "skills", only subdirectories containing a SKILL.md
+file are recognized as valid skills:
+>
+	~/.claude/skills/
+	  my-skill/
+	    SKILL.md      " Required - makes this a valid skill
+	    other.md      " Optional additional files
+	  incomplete/
+	    readme.md     " Not recognized (no SKILL.md)
+<
+
+Completion items include menu labels showing the source:
+
+- [commands:user]    - User-level command
+- [commands:project] - Project-level command
+- [skills:user]      - User-level skill
+- [skills:project]   - Project-level skill
+
+
+==============================================================================
+MIGRATION				*ddc-source-slash-commands-migration*
+
+If upgrading from v1.x, the following parameters have been removed:
+
+- commandsDir: Use |ddc-source-slash-commands-param-userDirs| instead
+- extensions: Removed (hardcoded to ".md")
+
+Migration example:
+>
+	" Before (v1.x)
+	call ddc#custom#patch_global('sourceParams', {
+	  \ 'slash_commands': {
+	  \   'commandsDir': '~/my/commands',
+	  \ }})
+
+	" After (v2.x)
+	call ddc#custom#patch_global('sourceParams', {
+	  \ 'slash_commands': {
+	  \   'userDirs': ['~/my/commands/'],
+	  \ }})
+<
 
 
 ==============================================================================

@@ -1,16 +1,69 @@
 import {
   BaseSource,
   type GatherArguments,
-  type OnCompleteDoneArguments,
 } from "jsr:@shougo/ddc-vim@9.5.0/source";
 import type { Item } from "jsr:@shougo/ddc-vim@9.5.0/types";
-import { basename, join } from "jsr:@std/path@^1.0.8";
-import { exists } from "jsr:@std/fs@^1.0.8";
+import { basename, join, resolve } from "jsr:@std/path@^1.0.8";
+import { exists, expandGlob } from "jsr:@std/fs@^1.0.8";
 
 type Params = {
-  commandsDir: string;
-  extensions: string[];
+  userDirs: string[];
+  projectDirs: string[];
 };
+
+/**
+ * Scan a directory for slash commands or skills.
+ *
+ * @param dir - Directory path to scan
+ * @param scope - "user" or "project" for menu label
+ * @returns Array of completion items
+ */
+export async function scanDirectory(
+  dir: string,
+  scope: "user" | "project",
+): Promise<Item[]> {
+  if (!(await exists(dir))) {
+    return [];
+  }
+
+  const items: Item[] = [];
+  const dirName = basename(dir);
+
+  try {
+    if (dirName === "skills") {
+      // Skills: scan */SKILL.md pattern (Agent Skills standard)
+      for await (const entry of expandGlob(join(dir, "*/SKILL.md"))) {
+        const skillName = basename(entry.path.replace(/\/SKILL\.md$/, ""));
+        // Exclude hidden directories
+        if (skillName.startsWith(".")) continue;
+        items.push({
+          word: "/" + skillName,
+          menu: `[skills:${scope}]`,
+        });
+      }
+    } else {
+      // Other directories: scan *.md files
+      for await (const entry of Deno.readDir(dir)) {
+        if (!entry.isFile) continue;
+        // Exclude hidden files
+        if (entry.name.startsWith(".")) continue;
+        // Check .md extension
+        if (!entry.name.endsWith(".md")) continue;
+
+        const commandName = basename(entry.name, ".md");
+        items.push({
+          word: "/" + commandName,
+          menu: `[${dirName}:${scope}]`,
+        });
+      }
+    }
+  } catch (_e) {
+    // Return empty array if directory reading fails
+    return [];
+  }
+
+  return items;
+}
 
 export class Source extends BaseSource<Params> {
   override getCompletePosition(args: GatherArguments<Params>): Promise<number> {
@@ -21,7 +74,6 @@ export class Source extends BaseSource<Params> {
     }
 
     // Return the position of / (accounting for leading space if present)
-    const leadingLength = slashMatch[1].length;
     return Promise.resolve(args.context.input.length - slashMatch[2].length);
   }
 
@@ -33,7 +85,6 @@ export class Source extends BaseSource<Params> {
     const params = sourceParams as Params;
 
     // Check if input contains / at the beginning or after a space
-    // Pattern: (start of line OR space) followed by / and optional word characters
     const slashMatch = context.input.match(/(^|\s)(\/[a-zA-Z0-9_-]*)$/);
     if (!slashMatch) {
       return [];
@@ -41,32 +92,24 @@ export class Source extends BaseSource<Params> {
 
     // Expand ~ to home directory
     const homeDir = (await denops.call("expand", "~")) as string;
-    const commandsDir = params.commandsDir.replace(/^~/, homeDir);
 
-    // Check if directory exists
-    if (!(await exists(commandsDir))) {
-      return [];
+    // Get current working directory for projectDirs
+    const cwd = Deno.cwd();
+
+    const items: Item[] = [];
+
+    // Scan userDirs (absolute paths with ~ expansion)
+    for (const dir of params.userDirs) {
+      const expandedDir = dir.replace(/^~/, homeDir);
+      const dirItems = await scanDirectory(expandedDir, "user");
+      items.push(...dirItems);
     }
 
-    // Get file list
-    const items: Item[] = [];
-    try {
-      for await (const entry of Deno.readDir(commandsDir)) {
-        if (!entry.isFile) continue;
-
-        const fileName = entry.name;
-        const ext = fileName.substring(fileName.lastIndexOf("."));
-
-        // Check if file has target extension
-        if (params.extensions.includes(ext)) {
-          const commandName = basename(fileName, ext);
-          const word = "/" + commandName;
-          items.push({ word });
-        }
-      }
-    } catch (_e) {
-      // Return empty array if directory reading fails
-      return [];
+    // Scan projectDirs (relative paths resolved from cwd)
+    for (const dir of params.projectDirs) {
+      const resolvedDir = resolve(cwd, dir);
+      const dirItems = await scanDirectory(resolvedDir, "project");
+      items.push(...dirItems);
     }
 
     return items;
@@ -74,8 +117,8 @@ export class Source extends BaseSource<Params> {
 
   override params(): Params {
     return {
-      commandsDir: "~/.config/claude/commands",
-      extensions: [".md"],
+      userDirs: ["~/.claude/commands/", "~/.claude/skills/"],
+      projectDirs: [".claude/commands/", ".claude/skills/"],
     };
   }
 }
