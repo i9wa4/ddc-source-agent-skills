@@ -1,17 +1,19 @@
 # ddc-source-slash-commands
 
-Slash command completion for ddc.vim.
+Slash command and skill completion for ddc.vim.
 
-Type `/` at line start or after space to complete Claude Code slash commands.
+Type `/` at line start or after space to complete Claude Code slash commands and skills.
 
-## Features
+## 1. Features
 
 - Completion triggers when `/` is at line start or after a space
 - Prevents unwanted completion in file paths
 - Supports hyphenated command names
 - Works with both prefix and fuzzy matching
+- Supports both commands (files) and skills (directories with SKILL.md)
+- Scans user-level and project-level directories
 
-## Installation
+## 2. Installation
 
 Using dein.vim
 
@@ -35,7 +37,7 @@ Using lazy.nvim
 }
 ```
 
-## Configuration
+## 3. Configuration
 
 Basic setup
 
@@ -44,7 +46,7 @@ call ddc#custom#patch_global('sources', ['slash_commands'])
 
 call ddc#custom#patch_global('sourceOptions', {
   \ 'slash_commands': {
-  \   'mark': '[cmd]',
+  \   'mark': '[slash]',
   \   'matchers': ['matcher_head'],
   \   'minAutoCompleteLength': 1,
   \   'isVolatile': v:true,
@@ -54,17 +56,82 @@ call ddc#custom#patch_global('sourceOptions', {
 
 For fuzzy matching, change `matchers` to `matcher_fuzzy`.
 
-## Parameters
+## 4. Parameters
 
-- `commandsDir`
-    - Default: `~/.config/claude/commands`
-    - Directory path containing slash command files
-- `extensions`
-    - Default: `[".md"]`
-    - File extensions to include in completion
+- `userDirs`
+    - Default: `["~/.claude/commands/", "~/.claude/skills/"]`
+    - User-level directories to scan (absolute paths, tilde expanded)
+- `projectDirs`
+    - Default: `[".claude/commands/", ".claude/skills/"]`
+    - Project-level directories to scan (relative to current working directory)
+
+Example with custom directories
+
+```vim
+call ddc#custom#patch_global('sourceParams', {
+  \ 'slash_commands': {
+  \   'userDirs': ['~/.claude/commands/', '~/.claude/skills/'],
+  \   'projectDirs': ['.claude/commands/', '.claude/skills/'],
+  \ }})
+```
 
 See `:help ddc-source-slash-commands` for more options.
 
-## License
+## 5. Skills Support
+
+This plugin follows the [Agent Skills specification](https://agentskills.io).
+
+For skills directories, only subdirectories containing a `SKILL.md` file are recognized as valid skills.
+
+NOTE: Skills detection only works for directories named `skills`. Custom directory names are treated as command directories.
+
+```text
+~/.claude/skills/
+  my-skill/
+    SKILL.md      # Required - this makes it a valid skill
+    other.md      # Optional additional files
+  incomplete/
+    readme.md     # Not recognized (no SKILL.md)
+```
+
+## 6. Menu Labels
+
+Completion items show their source type and scope in the menu.
+
+For default configuration:
+
+- `[commands:user]` - User-level command
+- `[commands:project]` - Project-level command
+- `[skills:user]` - User-level skill
+- `[skills:project]` - Project-level skill
+
+NOTE: Menu labels use the directory name. Custom directories like `~/my-cmds/` will show `[my-cmds:user]`.
+
+## 7. Migration from v1.x
+
+The following parameters have been removed:
+
+| Old Parameter  | Migration                             |
+| -------------- | -----------                           |
+| `commandsDir`  | Use `userDirs` (array of directories) |
+| `extensions`   | Removed (hardcoded to `.md`)          |
+
+Example migration
+
+```vim
+" Before (v1.x)
+call ddc#custom#patch_global('sourceParams', {
+  \ 'slash_commands': {
+  \   'commandsDir': '~/my/commands',
+  \ }})
+
+" After (v2.x)
+call ddc#custom#patch_global('sourceParams', {
+  \ 'slash_commands': {
+  \   'userDirs': ['~/my/commands/'],
+  \ }})
+```
+
+## 8. License
 
 MIT License
