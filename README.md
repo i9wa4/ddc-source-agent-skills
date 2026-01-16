@@ -64,6 +64,20 @@ For fuzzy matching, change `matchers` to `matcher_fuzzy`.
 - `projectDirs`
     - Default: `[".claude/commands/", ".claude/skills/"]`
     - Project-level directories to scan (relative to current working directory)
+- `plugins`
+    - Default: `"off"`
+    - Plugin scanning mode: `"auto"`, `"on"`, or `"off"`
+    - `"auto"` and `"on"` enable plugin scanning (same behavior in current version)
+    - `"off"` disables plugin scanning (default for backward compatibility)
+- `userPluginPaths`
+    - Default: `[]`
+    - User-level plugin directories (absolute paths, tilde expanded)
+    - Each path must be a valid Claude Code plugin with `.claude-plugin/plugin.json`
+- `projectPluginPaths`
+    - Default: `[]`
+    - Project-level plugin directories (relative paths only)
+    - Absolute paths are rejected for security
+    - Paths must resolve within the project directory
 
 Example with custom directories
 
@@ -72,6 +86,17 @@ call ddc#custom#patch_global('sourceParams', {
   \ 'slash_commands': {
   \   'userDirs': ['~/.claude/commands/', '~/.claude/skills/'],
   \   'projectDirs': ['.claude/commands/', '.claude/skills/'],
+  \ }})
+```
+
+Example with plugin support enabled
+
+```vim
+call ddc#custom#patch_global('sourceParams', {
+  \ 'slash_commands': {
+  \   'plugins': 'on',
+  \   'userPluginPaths': ['~/my-plugins/code-review/'],
+  \   'projectPluginPaths': ['.plugins/deploy/'],
   \ }})
 ```
 
@@ -104,6 +129,13 @@ For default configuration:
 - `[commands:project]` - Project-level command
 - `[skills:user]` - User-level skill
 - `[skills:project]` - Project-level skill
+
+For plugin sources:
+
+- `[plugin:commands:user]` - User-level plugin command
+- `[plugin:commands:project]` - Project-level plugin command
+- `[plugin:skills:user]` - User-level plugin skill
+- `[plugin:skills:project]` - Project-level plugin skill
 
 NOTE: Menu labels use the directory name. Custom directories like `~/my-cmds/` will show `[my-cmds:user]`.
 
