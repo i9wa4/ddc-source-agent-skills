@@ -10,7 +10,7 @@
 Run type check before committing:
 
 ```sh
-deno check denops/@ddc-sources/slash_commands.ts
+deno check denops/@ddc-sources/agent_skills.ts
 ```
 
 ## Running Tests
@@ -28,11 +28,7 @@ NOTE: The `--filter` option excludes tests from cached dependencies.
 1. Set up test directories:
 
 ```sh
-# User-level commands
-mkdir -p ~/.claude/commands
-echo "# Test Command" > ~/.claude/commands/test-command.md
-
-# User-level skills
+# User-level skill
 mkdir -p ~/.claude/skills/test-skill
 cat > ~/.claude/skills/test-skill/SKILL.md << 'EOF'
 ---
@@ -42,17 +38,22 @@ description: A test skill for development
 # Test Skill
 EOF
 
-# Project-level (in your project directory)
-mkdir -p .claude/commands
-echo "# Project Command" > .claude/commands/project-cmd.md
+# Project-level skill (in your project directory)
+mkdir -p .claude/skills/test-skill
+cat > .claude/skills/test-skill/SKILL.md << 'EOF'
+---
+name: test-skill
+description: A project-level test skill
+---
+# Test Skill
+EOF
 ```
 
 2. Open Vim/Neovim with ddc.vim configured
 
 3. Type `/` at line start and verify:
-   - `/test-command [commands:user]` appears
    - `/test-skill [skills:user]` appears
-   - `/project-cmd [commands:project]` appears
+   - `/test-skill [skills:project]` appears
 
 ## Code Style
 

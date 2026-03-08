@@ -1,10 +1,10 @@
 {
-  "name": "@i9wa4/ddc-source-slash-commands",
+  "name": "@i9wa4/ddc-source-agent-skills",
   "version": "0.1.0",
-  "exports": "./denops/@ddc-sources/slash_commands.ts",
+  "exports": "./denops/@ddc-sources/agent_skills.ts",
   "lock": false,
   "tasks": {
-    "check": "deno check denops/@ddc-sources/slash_commands.ts"
+    "check": "deno check denops/@ddc-sources/agent_skills.ts"
   },
   "fmt": {
     "useTabs": false,

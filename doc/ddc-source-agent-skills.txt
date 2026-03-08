@@ -1,0 +1,281 @@
+*ddc-source-agent-skills.txt*	Skill completion for ddc.vim
+
+Author: i9wa4
+License: MIT License
+
+==============================================================================
+CONTENTS				*ddc-source-agent-skills-contents*
+
+INTRODUCTION		|ddc-source-agent-skills-introduction|
+FEATURES		|ddc-source-agent-skills-features|
+INSTALL			|ddc-source-agent-skills-install|
+EXAMPLES		|ddc-source-agent-skills-examples|
+SOURCE OPTIONS		|ddc-source-agent-skills-source-options|
+PARAMS			|ddc-source-agent-skills-params|
+SKILLS			|ddc-source-agent-skills-skills|
+MIGRATION		|ddc-source-agent-skills-migration|
+
+
+==============================================================================
+INTRODUCTION				*ddc-source-agent-skills-introduction*
+
+*ddc-source-agent-skills* is a ddc.vim source that provides skill completion
+for Claude Code (prefix "/") and Codex CLI (prefix "$").
+
+When you type "/" or "$" in your buffer, it suggests available skills from
+your skills directories.
+
+
+==============================================================================
+FEATURES					*ddc-source-agent-skills-features*
+
+- Completion only triggers when the prefix ("/" or "$") is at line start or
+  after a space
+- Prevents unwanted completion in file paths (e.g., "path/to/file")
+- Supports hyphenated skill names (e.g., "/git-helper", "/code-review")
+- Works with both matcher_head (prefix matching) and matcher_fuzzy (fuzzy
+  matching)
+- Supports both user-level and project-level skills directories
+- Follows the Agent Skills specification for skills detection
+- Reads description from SKILL.md frontmatter and shows it as info
+
+
+==============================================================================
+INSTALL					*ddc-source-agent-skills-install*
+
+This plugin requires the following:
+
+- Vim/Neovim with denops.vim
+- ddc.vim
+
+Using dein.vim:
+>
+	call dein#add('vim-denops/denops.vim')
+	call dein#add('Shougo/ddc.vim')
+	call dein#add('Shougo/ddc-matcher_head')  " or tani/ddc-fuzzy
+	call dein#add('i9wa4/ddc-source-agent-skills')
+<
+
+Using lazy.nvim:
+>
+	{
+	  'i9wa4/ddc-source-agent-skills',
+	  dependencies = {
+	    'vim-denops/denops.vim',
+	    'Shougo/ddc.vim',
+	    'Shougo/ddc-matcher_head',  -- or tani/ddc-fuzzy
+	  },
+	}
+<
+
+
+==============================================================================
+EXAMPLES					*ddc-source-agent-skills-examples*
+
+Basic configuration:
+>
+	call ddc#custom#patch_global('sources', ['agent_skills'])
+
+	call ddc#custom#patch_global('sourceOptions', {
+	  \ 'agent_skills': {
+	  \   'mark': '[slash]',
+	  \   'matchers': ['matcher_head'],
+	  \   'minAutoCompleteLength': 1,
+	  \   'isVolatile': v:true,
+	  \   'forceCompletionPattern': '\/[a-zA-Z0-9_:-]*',
+	  \ }})
+<
+
+With custom parameters:
+>
+	call ddc#custom#patch_global('sourceParams', {
+	  \ 'agent_skills': {
+	  \   'userDirs': ['~/.claude/skills/', '~/.codex/skills/'],
+	  \   'projectDirs': ['.claude/skills/'],
+	  \ }})
+<
+
+For Codex CLI ($ prefix):
+>
+	call ddc#custom#patch_global('sourceParams', {
+	  \ 'agent_skills': {
+	  \   'prefix': '$',
+	  \ }})
+
+	call ddc#custom#patch_global('sourceOptions', {
+	  \ 'agent_skills': {
+	  \   'forceCompletionPattern': '\$[a-zA-Z0-9_:-]*',
+	  \ }})
+<
+
+Fuzzy matching support:
+>
+	" Install tani/ddc-fuzzy
+	call dein#add('tani/ddc-fuzzy')
+
+	" Change matcher to fuzzy
+	call ddc#custom#patch_global('sourceOptions', {
+	  \ 'agent_skills': {
+	  \   'matchers': ['matcher_fuzzy'],
+	  \   'mark': '[slash]',
+	  \   'minAutoCompleteLength': 1,
+	  \   'isVolatile': v:true,
+	  \   'forceCompletionPattern': '\/[a-zA-Z0-9_:-]*',
+	  \ }})
+<
+
+This enables patterns like "/cmd" -> "/command1".
+
+
+==============================================================================
+SOURCE OPTIONS			*ddc-source-agent-skills-source-options*
+
+These are common ddc.vim source options that work well with this plugin.
+
+				*ddc-source-agent-skills-option-mark*
+mark		(string)
+		Completion menu marker.
+
+		Default: "[slash]"
+
+				*ddc-source-agent-skills-option-matchers*
+matchers	(string[])
+		Matcher to use.
+		- ["matcher_head"]: Prefix matching (e.g., "/my" matches
+		  "/my-commit")
+		- ["matcher_fuzzy"]: Fuzzy matching (e.g., "/mcom" matches
+		  "/my-commit")
+
+		For fuzzy matching, install tani/ddc-fuzzy:
+		https://github.com/tani/ddc-fuzzy
+
+		Default: ["matcher_head"]
+
+			*ddc-source-agent-skills-option-minAutoCompleteLength*
+minAutoCompleteLength	(number)
+		Minimum input length to trigger completion.
+
+		Recommended: 1
+
+			*ddc-source-agent-skills-option-isVolatile*
+isVolatile	(boolean)
+		Always gather candidates on every input change.
+
+		Recommended: v:true
+
+		*ddc-source-agent-skills-option-forceCompletionPattern*
+forceCompletionPattern	(string)
+		Pattern to force completion trigger.
+
+		Recommended: '\/[a-zA-Z0-9_:-]*'
+		For Codex CLI ($): '\$[a-zA-Z0-9_:-]*'
+
+
+==============================================================================
+PARAMS					*ddc-source-agent-skills-params*
+
+				*ddc-source-agent-skills-param-userDirs*
+userDirs	(string[])
+		User-level skills directories to scan.
+		Paths starting with "~" are expanded to the home directory.
+
+		Default: ["~/.claude/skills/"]
+
+				*ddc-source-agent-skills-param-projectDirs*
+projectDirs	(string[])
+		Project-level skills directories to scan.
+		Relative paths are resolved from the current working directory.
+
+		Default: [".claude/skills/"]
+
+				*ddc-source-agent-skills-param-prefix*
+prefix		(string)
+		Completion trigger prefix character.
+		Use "/" for Claude Code and "$" for Codex CLI.
+
+		Default: "/"
+
+			*ddc-source-agent-skills-param-plugins*
+plugins		(string)
+		Plugin scanning mode.
+		- "off": Disable plugin scanning (default)
+		- "on":  Enable plugin scanning
+
+		Default: "off"
+
+			*ddc-source-agent-skills-param-userPluginPaths*
+userPluginPaths	(string[])
+		User-level plugin directories to scan (absolute paths, tilde
+		expanded). Each path must contain .claude-plugin/plugin.json.
+
+		Default: []
+
+			*ddc-source-agent-skills-param-projectPluginPaths*
+projectPluginPaths	(string[])
+		Project-level plugin directories (relative paths only).
+		Absolute paths are rejected. Paths must resolve within the
+		current working directory for security.
+
+		Default: []
+
+
+==============================================================================
+SKILLS					*ddc-source-agent-skills-skills*
+
+This plugin follows the Agent Skills specification (https://agentskills.io).
+
+Only subdirectories containing a SKILL.md file are recognized as valid skills.
+Symlinked directories (e.g., Nix-managed skills) are supported.
+>
+	~/.claude/skills/
+	  my-skill/
+	    SKILL.md      " Required - makes this a valid skill
+	    other.md      " Optional additional files
+	  incomplete/
+	    readme.md     " Not recognized (no SKILL.md)
+<
+
+If SKILL.md contains a description field in its YAML frontmatter, the first
+line of the description is shown as the info field in the completion popup.
+
+Completion items include menu labels showing the scope:
+
+- [skills:user]    - User-level skill
+- [skills:project] - Project-level skill
+
+For plugin sources:
+
+- [plugin:user]    - User-level plugin skill
+- [plugin:project] - Project-level plugin skill
+
+
+==============================================================================
+MIGRATION				*ddc-source-agent-skills-migration*
+
+From v1.x: the following parameters have been removed:
+
+- commandsDir: Use |ddc-source-agent-skills-param-userDirs| instead
+- extensions: Removed (hardcoded to ".md")
+
+From v2.x: command directory scanning has been removed. Only skills
+directories (containing SKILL.md) are supported. Remove commands/ entries
+from userDirs and projectDirs:
+>
+	" Before (v2.x)
+	call ddc#custom#patch_global('sourceParams', {
+	  \ 'agent_skills': {
+	  \   'userDirs': ['~/.claude/commands/', '~/.claude/skills/'],
+	  \   'projectDirs': ['.claude/commands/', '.claude/skills/'],
+	  \ }})
+
+	" After (v3.x)
+	call ddc#custom#patch_global('sourceParams', {
+	  \ 'agent_skills': {
+	  \   'userDirs': ['~/.claude/skills/'],
+	  \   'projectDirs': ['.claude/skills/'],
+	  \ }})
+<
+
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:noet:fen:noet:
