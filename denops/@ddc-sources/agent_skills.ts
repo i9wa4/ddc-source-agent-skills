@@ -203,20 +203,36 @@ async function extractBuiltins(binaryName: string): Promise<string[]> {
       return empty;
     }
     const binPath = new TextDecoder().decode(whichResult.stdout).trim();
-    const realPath = await Deno.realPath(binPath);
+    // Resolve symlinks to get the real path (may still be a shell wrapper)
+    const resolvedPath = await Deno.realPath(binPath);
 
     let names: string[] = [];
     if (binaryName === "claude") {
-      // Claude Code: compiled JS bundle embeds userFacingName":"commandname"
+      // Claude Code is packaged as a bash wrapper that exec's the actual JS
+      // bundle (.claude-wrapped). Parse the wrapper to find the bundle path.
+      let bundlePath = resolvedPath;
+      try {
+        const wrapperText = await Deno.readTextFile(resolvedPath);
+        const execMatch = wrapperText.match(/exec\s+-a\s+"[^"]+"\s+"([^"]+)"/);
+        if (execMatch) bundlePath = execMatch[1];
+      } catch {
+        // Not a text file or unreadable — fall through and grep resolvedPath
+      }
+      // Bundle uses method syntax: userFacingName(){return"commandname"}
       const grepResult = await new Deno.Command("grep", {
-        args: ["-oa", 'userFacingName":"[^"]*"', realPath],
+        args: ["-oa", 'userFacingName(){return"[^"]*"', bundlePath],
         stdout: "piped",
         stderr: "null",
       }).output();
       const output = new TextDecoder().decode(grepResult.stdout);
+      // Post-filter: slash commands are lowercase with hyphens only.
+      // This excludes tool/action names like "TaskCreate", "Web Search", etc.
+      const slashCommandShape = /^[a-z][a-z0-9-]*$/;
       names = [
         ...new Set(
-          [...output.matchAll(/userFacingName":"([^"]+)"/g)].map((m) => m[1]),
+          [...output.matchAll(/userFacingName\(\)\{return"([^"]+)"/g)]
+            .map((m) => m[1])
+            .filter((n) => slashCommandShape.test(n)),
         ),
       ].sort();
     } else if (binaryName === "codex") {
@@ -224,7 +240,7 @@ async function extractBuiltins(binaryName: string): Promise<string[]> {
       const pattern =
         "add-dir\\|compact\\|agents\\|clear\\|config\\|continue\\|cost\\|fork\\|help\\|init\\|login\\|logout\\|mcp\\|memory\\|model\\|quit\\|resume\\|review\\|run\\|status\\|bug";
       const grepResult = await new Deno.Command("grep", {
-        args: ["-oa", pattern, realPath],
+        args: ["-oa", pattern, resolvedPath],
         stdout: "piped",
         stderr: "null",
       }).output();
