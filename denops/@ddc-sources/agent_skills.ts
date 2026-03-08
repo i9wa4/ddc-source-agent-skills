@@ -17,7 +17,7 @@ type Params = {
   plugins: "on" | "off";
   userPluginPaths: string[];
   projectPluginPaths: string[];
-  prefix: string;
+  prefix: string | string[];
 };
 
 /**
@@ -181,10 +181,81 @@ export async function scanDirectory(
   return items;
 }
 
+/** Module-level cache: binary name → built-in command names ([] = tried, nothing found) */
+const _builtinCache = new Map<string, string[]>();
+
+/**
+ * Extract built-in command names from a CLI binary via grep.
+ * Results are cached in memory for the lifetime of the process.
+ * Returns [] if binary is not found or extraction yields nothing.
+ */
+async function extractBuiltins(binaryName: string): Promise<string[]> {
+  if (_builtinCache.has(binaryName)) return _builtinCache.get(binaryName)!;
+  const empty: string[] = [];
+  try {
+    const whichResult = await new Deno.Command("which", {
+      args: [binaryName],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+    if (!whichResult.success) {
+      _builtinCache.set(binaryName, empty);
+      return empty;
+    }
+    const binPath = new TextDecoder().decode(whichResult.stdout).trim();
+    const realPath = await Deno.realPath(binPath);
+
+    let names: string[] = [];
+    if (binaryName === "claude") {
+      // Claude Code: compiled JS bundle embeds userFacingName":"commandname"
+      const grepResult = await new Deno.Command("grep", {
+        args: ["-oa", 'userFacingName":"[^"]*"', realPath],
+        stdout: "piped",
+        stderr: "null",
+      }).output();
+      const output = new TextDecoder().decode(grepResult.stdout);
+      names = [
+        ...new Set(
+          [...output.matchAll(/userFacingName":"([^"]+)"/g)].map((m) => m[1]),
+        ),
+      ].sort();
+    } else if (binaryName === "codex") {
+      // Codex CLI: Rust binary with known built-in command names
+      const pattern =
+        "add-dir\\|compact\\|agents\\|clear\\|config\\|continue\\|cost\\|fork\\|help\\|init\\|login\\|logout\\|mcp\\|memory\\|model\\|quit\\|resume\\|review\\|run\\|status\\|bug";
+      const grepResult = await new Deno.Command("grep", {
+        args: ["-oa", pattern, realPath],
+        stdout: "piped",
+        stderr: "null",
+      }).output();
+      const output = new TextDecoder().decode(grepResult.stdout);
+      names = [
+        ...new Set(
+          output.split("\n").map((l) => l.trim()).filter((l) => l.length > 0),
+        ),
+      ].sort();
+    }
+
+    _builtinCache.set(binaryName, names);
+    return names;
+  } catch {
+    _builtinCache.set(binaryName, empty);
+    return empty;
+  }
+}
+
+/** Map a completion prefix to its associated CLI binary name. */
+function prefixToBinary(prefix: string): string {
+  return prefix === "$" ? "codex" : "claude";
+}
+
 export class Source extends BaseSource<Params> {
-  #prefixRe(prefix: string): RegExp {
-    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(^|\\s)(${escaped}[a-zA-Z0-9_:-]*)$`);
+  #prefixRe(prefix: string | string[]): RegExp {
+    const prefixes = Array.isArray(prefix) ? prefix : [prefix];
+    const escaped = prefixes
+      .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+    return new RegExp(`(^|\\s)((${escaped})[a-zA-Z0-9_:-]*)$`);
   }
 
   override getCompletePosition(args: GatherArguments<Params>): Promise<number> {
@@ -201,27 +272,50 @@ export class Source extends BaseSource<Params> {
     sourceParams,
   }: GatherArguments<Params>): Promise<Item[]> {
     const params = sourceParams as Params;
-    const prefix = params.prefix;
+    const prefixes = Array.isArray(params.prefix)
+      ? params.prefix
+      : [params.prefix];
 
-    if (!context.input.match(this.#prefixRe(prefix))) return [];
+    const match = context.input.match(this.#prefixRe(prefixes));
+    if (!match) return [];
+
+    // match[3] is the prefix capture group from #prefixRe
+    const typedPrefix = match[3];
 
     const homeDir = (await denops.call("expand", "~")) as string;
     const cwd = (await denops.call("getcwd")) as string;
 
     const items: Item[] = [];
 
+    // Built-in commands (extracted once at first gather, then cached)
+    const binaryName = prefixToBinary(typedPrefix);
+    const builtinNames = await extractBuiltins(binaryName);
+    for (const name of builtinNames) {
+      items.push({ word: `${typedPrefix}${name}`, menu: `[builtins:${binaryName}]`, info: "" });
+    }
+
     for (const dir of params.userDirs) {
-      items.push(...await scanDirectory(dir.replace(/^~/, homeDir), "user", prefix));
+      items.push(
+        ...await scanDirectory(dir.replace(/^~/, homeDir), "user", typedPrefix),
+      );
     }
 
     for (const dir of params.projectDirs) {
-      items.push(...await scanDirectory(resolve(cwd, dir), "project", prefix));
+      items.push(
+        ...await scanDirectory(resolve(cwd, dir), "project", typedPrefix),
+      );
     }
 
     if (params.plugins !== "off") {
       for (const pluginPath of params.userPluginPaths) {
         if (!pluginPath || !pluginPath.trim()) continue;
-        items.push(...await scanPlugin(pluginPath.replace(/^~/, homeDir), "user", prefix));
+        items.push(
+          ...await scanPlugin(
+            pluginPath.replace(/^~/, homeDir),
+            "user",
+            typedPrefix,
+          ),
+        );
       }
 
       for (const pluginPath of params.projectPluginPaths) {
@@ -229,7 +323,7 @@ export class Source extends BaseSource<Params> {
         if (isAbsolute(pluginPath) || pluginPath.includes("..")) continue;
         const resolvedPath = resolve(cwd, pluginPath);
         if (!(await isWithinBoundary(resolvedPath, cwd))) continue;
-        items.push(...await scanPlugin(resolvedPath, "project", prefix));
+        items.push(...await scanPlugin(resolvedPath, "project", typedPrefix));
       }
     }
 
@@ -243,7 +337,7 @@ export class Source extends BaseSource<Params> {
       plugins: "off",
       userPluginPaths: [],
       projectPluginPaths: [],
-      prefix: "/",
+      prefix: ["/", "$"],
     };
   }
 }

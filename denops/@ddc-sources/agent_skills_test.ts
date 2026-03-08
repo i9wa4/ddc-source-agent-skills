@@ -5,6 +5,7 @@ import {
   scanDirectory,
   scanPlugin,
   scanPluginDirectory,
+  Source,
 } from "./agent_skills.ts";
 
 // Helper to create temp directory structure
@@ -462,4 +463,56 @@ Deno.test("isWithinBoundary - similar prefix path returns false", async () => {
 
     assertEquals(result, false);
   });
+});
+
+// ============================================================================
+// Source class — prefix normalization tests
+// ============================================================================
+
+// deno-lint-ignore no-explicit-any
+function mockArgs(input: string, prefix: string | string[]): any {
+  return { context: { input }, sourceParams: { prefix } };
+}
+
+Deno.test("Source.getCompletePosition - string prefix '/' matches /cmd", async () => {
+  const source = new Source();
+  const pos = await source.getCompletePosition(mockArgs("/cmd", "/"));
+  assertEquals(pos, 0);
+});
+
+Deno.test("Source.getCompletePosition - string prefix '$' matches $cmd", async () => {
+  const source = new Source();
+  const pos = await source.getCompletePosition(mockArgs("$cmd", "$"));
+  assertEquals(pos, 0);
+});
+
+Deno.test("Source.getCompletePosition - string prefix '$' does not match /cmd", async () => {
+  const source = new Source();
+  const pos = await source.getCompletePosition(mockArgs("/cmd", "$"));
+  assertEquals(pos, -1);
+});
+
+Deno.test("Source.getCompletePosition - array prefix ['/', '$'] matches /cmd", async () => {
+  const source = new Source();
+  const pos = await source.getCompletePosition(mockArgs("/cmd", ["/", "$"]));
+  assertEquals(pos, 0);
+});
+
+Deno.test("Source.getCompletePosition - array prefix ['/', '$'] matches $cmd", async () => {
+  const source = new Source();
+  const pos = await source.getCompletePosition(mockArgs("$cmd", ["/", "$"]));
+  assertEquals(pos, 0);
+});
+
+Deno.test("Source.getCompletePosition - array prefix ['/', '$'] no match returns -1", async () => {
+  const source = new Source();
+  const pos = await source.getCompletePosition(mockArgs("hello world", ["/", "$"]));
+  assertEquals(pos, -1);
+});
+
+Deno.test("Source.getCompletePosition - array prefix returns leftmost position", async () => {
+  const source = new Source();
+  // input: "hello $cmd" — "$cmd" at position 6
+  const pos = await source.getCompletePosition(mockArgs("hello $cmd", ["/", "$"]));
+  assertEquals(pos, 6);
 });
