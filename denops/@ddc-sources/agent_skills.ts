@@ -185,6 +185,17 @@ export async function scanDirectory(
 const _builtinCache = new Map<string, string[]>();
 
 /**
+ * Commands verified as isHidden:!0 in the .claude-wrapped bundle.
+ * Verified against Claude Code 2.1.71 (Nix package).
+ * Update this set if commands appear/disappear across Claude Code versions.
+ */
+const _claudeHiddenCommands = new Set([
+  "heapdump",
+  "rate-limit-options",
+  "thinkback-play",
+]);
+
+/**
  * Extract built-in command names from a CLI binary via grep.
  * Results are cached in memory for the lifetime of the process.
  * Returns [] if binary is not found or extraction yields nothing.
@@ -232,7 +243,9 @@ async function extractBuiltins(binaryName: string): Promise<string[]> {
         ...new Set(
           [...output.matchAll(/userFacingName\(\)\{return"([^"]+)"/g)]
             .map((m) => m[1])
-            .filter((n) => slashCommandShape.test(n)),
+            .filter((n) =>
+              slashCommandShape.test(n) && !_claudeHiddenCommands.has(n)
+            ),
         ),
       ].sort();
     } else if (binaryName === "codex") {
